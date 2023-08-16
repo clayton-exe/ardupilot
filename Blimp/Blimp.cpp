@@ -72,7 +72,9 @@ const AP_Scheduler::Task Blimp::scheduler_tasks[] = {
     SCHED_TASK(arm_motors_check,      10,     50,  18),
     SCHED_TASK(update_altitude,       10,    100,  21),
     SCHED_TASK(three_hz_loop,          3,     75,  24),
+#if AP_SERVORELAYEVENTS_ENABLED
     SCHED_TASK_CLASS(AP_ServoRelayEvents,  &blimp.ServoRelayEvents,      update_events, 50,     75,  27),
+#endif
     SCHED_TASK_CLASS(AP_Baro,              &blimp.barometer,             accumulate,    50,     90,  30),
 #if LOGGING_ENABLED == ENABLED
     SCHED_TASK(full_rate_logging,     50,    50,  33),
@@ -91,7 +93,6 @@ const AP_Scheduler::Task Blimp::scheduler_tasks[] = {
 #endif
     SCHED_TASK_CLASS(AP_InertialSensor,    &blimp.ins,                 periodic,       400,  50,  66),
     SCHED_TASK_CLASS(AP_Scheduler,         &blimp.scheduler,           update_logging, 0.1,  75,  69),
-    SCHED_TASK_CLASS(Compass,              &blimp.compass,             cal_update,     100, 100,  72),
 #if STATS_ENABLED == ENABLED
     SCHED_TASK_CLASS(AP_Stats,             &blimp.g2.stats,            update,           1, 100,  75),
 #endif

@@ -3,10 +3,9 @@
 
 #include "AP_Generator_Backend.h"
 
-#if HAL_GENERATOR_ENABLED
+#if AP_GENERATOR_RICHENPOWER_ENABLED
 
 #include <AP_Common/AP_Common.h>
-#include <SRV_Channel/SRV_Channel.h>
 #include <stdint.h>
 #include <stdio.h>
 

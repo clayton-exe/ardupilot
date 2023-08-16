@@ -30,6 +30,7 @@
 #include "AP_RangeFinder_LeddarOne.h"
 #include "AP_RangeFinder_USD1_Serial.h"
 #include "AP_RangeFinder_TeraRangerI2C.h"
+#include "AP_RangeFinder_TeraRanger_Serial.h"
 #include "AP_RangeFinder_VL53L0X.h"
 #include "AP_RangeFinder_VL53L1X.h"
 #include "AP_RangeFinder_NMEA.h"
@@ -43,17 +44,21 @@
 #include "AP_RangeFinder_HC_SR04.h"
 #include "AP_RangeFinder_Bebop.h"
 #include "AP_RangeFinder_BLPing.h"
-#include "AP_RangeFinder_UAVCAN.h"
+#include "AP_RangeFinder_DroneCAN.h"
 #include "AP_RangeFinder_Lanbao.h"
 #include "AP_RangeFinder_LeddarVu8.h"
 #include "AP_RangeFinder_SITL.h"
 #include "AP_RangeFinder_MSP.h"
 #include "AP_RangeFinder_USD1_CAN.h"
 #include "AP_RangeFinder_Benewake_CAN.h"
+#include "AP_RangeFinder_Lua.h"
+#include "AP_RangeFinder_NoopLoop.h"
 
 #include <AP_BoardConfig/AP_BoardConfig.h>
 #include <AP_Logger/AP_Logger.h>
+#include <AP_SerialManager/AP_SerialManager.h>
 #include <AP_Vehicle/AP_Vehicle_Type.h>
+#include <AP_HAL/I2CDevice.h>
 
 extern const AP_HAL::HAL &hal;
 
@@ -65,7 +70,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
 	AP_SUBGROUPINFO(params[0], "1_", 25, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 1_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[0], "1_",  57, RangeFinder, backend_var_info[0]),
 
 #if RANGEFINDER_MAX_INSTANCES > 1
@@ -74,7 +79,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[1], "2_", 27, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 2_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[1], "2_",  58, RangeFinder, backend_var_info[1]),
 #endif
 
@@ -84,7 +89,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[2], "3_", 29, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 3_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[2], "3_",  59, RangeFinder, backend_var_info[2]),
 #endif
 
@@ -94,7 +99,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[3], "4_", 31, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 4_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[3], "4_",  60, RangeFinder, backend_var_info[3]),
 #endif
 
@@ -104,7 +109,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[4], "5_", 33, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 5_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[4], "5_",  34, RangeFinder, backend_var_info[4]),
 #endif
 
@@ -114,7 +119,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[5], "6_", 35, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 6_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[5], "6_",  36, RangeFinder, backend_var_info[5]),
 #endif
 
@@ -124,7 +129,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[6], "7_", 37, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 7_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[6], "7_",  38, RangeFinder, backend_var_info[6]),
 #endif
 
@@ -134,7 +139,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[7], "8_", 39, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 8_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[7], "8_",  40, RangeFinder, backend_var_info[7]),
 #endif
 
@@ -144,7 +149,7 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[8], "9_", 41, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: 9_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[8], "9_",  42, RangeFinder, backend_var_info[8]),
 #endif
 
@@ -154,10 +159,10 @@ const AP_Param::GroupInfo RangeFinder::var_info[] = {
     AP_SUBGROUPINFO(params[9], "A_", 43, RangeFinder, AP_RangeFinder_Params),
 
     // @Group: A_
-    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp
+    // @Path: AP_RangeFinder_Wasp.cpp,AP_RangeFinder_Benewake_CAN.cpp,AP_RangeFinder_USD1_CAN.cpp
     AP_SUBGROUPVARPTR(drivers[9], "A_",  44, RangeFinder, backend_var_info[9]),
 #endif
-    
+
     AP_GROUPEND
 };
 
@@ -175,88 +180,6 @@ RangeFinder::RangeFinder()
     _singleton = this;
 }
 
-void RangeFinder::convert_params(void) {
-    if (params[0].type.configured()) {
-        // _params[0]._type will always be configured after conversion is done the first time
-        // or the user has set a type in a defaults.parm file or via apj tool
-        return;
-    }
-
-    struct ConversionTable {
-        uint8_t old_element;
-        uint8_t new_index;
-        uint8_t instance;
-    };
-
-    const struct ConversionTable conversionTable[] = {
-        // PARAMETER_CONVERSION - Added: Feb-2019
-            // rangefinder 1
-            {0, 0, 0}, //0, TYPE 1
-            {1, 1, 0}, //1, PIN 1
-            {2, 2, 0}, //2, SCALING 1
-            {3, 3, 0}, //3, OFFSET 1
-            {4, 4, 0}, //4, FUNCTION 1
-            {5, 5, 0}, //5, MIN_CM 1
-            {6, 6, 0}, //6, MAX_CM 1
-            {7, 7, 0}, //7, STOP_PIN 1
-            {9, 8, 0}, //9, RMETRIC 1
-            {10, 9, 0}, //10, PWRRNG 1 (previously existed only once for all sensors)
-            {11, 10, 0}, //11, GNDCLEAR 1
-            {23, 11, 0}, //23, ADDR 1
-            {49, 12, 0}, //49, POS 1
-            {53, 13, 0}, //53, ORIENT 1
-
-            // rangefinder 2
-            {12, 0, 1}, //12, TYPE 2
-            {13, 1, 1}, //13, PIN 2
-            {14, 2, 1}, //14, SCALING 2
-            {15, 3, 1}, //15, OFFSET 2
-            {16, 4, 1}, //16, FUNCTION 2
-            {17, 5, 1}, //17, MIN_CM 2
-            {18, 6, 1}, //18, MAX_CM 2
-            {19, 7, 1}, //19, STOP_PIN 2
-            {21, 8, 1}, //21, RMETRIC 2
-            {10, 9, 1}, //10, PWRRNG 1 (previously existed only once for all sensors)
-            {22, 10, 1}, //22, GNDCLEAR 2
-            {24, 11, 1}, //24, ADDR 2
-            {50, 12, 1}, //50, POS 2
-            {54, 13, 1}, //54, ORIENT 2
-    };
-
-    char param_name[17] = {0};
-    AP_Param::ConversionInfo info;
-    info.new_name = param_name;
-
-#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
-    info.old_key = 71;
-#elif APM_BUILD_COPTER_OR_HELI
-    info.old_key = 53;
-#elif APM_BUILD_TYPE(APM_BUILD_ArduSub)
-    info.old_key = 35;
-#elif APM_BUILD_TYPE(APM_BUILD_Rover)
-    info.old_key = 197;
-#else
-    params[0].type.save(true);
-    return; // no conversion is supported on this platform
-#endif
-
-    for (uint8_t i = 0; i < ARRAY_SIZE(conversionTable); i++) {
-        uint8_t param_instance = conversionTable[i].instance + 1;
-        uint8_t destination_index = conversionTable[i].new_index;
-
-        info.old_group_element = conversionTable[i].old_element;
-        info.type = (ap_var_type)AP_RangeFinder_Params::var_info[destination_index].type;
-
-        hal.util->snprintf(param_name, sizeof(param_name), "RNGFND%X_%s", param_instance, AP_RangeFinder_Params::var_info[destination_index].name);
-        param_name[sizeof(param_name)-1] = '\0';
-
-        AP_Param::convert_old_parameter(&info, 1.0f, 0);
-    }
-
-    // force _params[0]._type into storage to flag that conversion has been done
-    params[0].type.save(true);
-}
-
 /*
   initialise the RangeFinder class. We do detection of attached range
   finders here. For now we won't allow for hot-plugging of
@@ -264,13 +187,10 @@ void RangeFinder::convert_params(void) {
  */
 void RangeFinder::init(enum Rotation orientation_default)
 {
-    if (init_done) {
-        // init called a 2nd time?
+    if (num_instances != 0) {
+        // don't re-init if we've found some sensors already
         return;
     }
-    init_done = true;
-
-    convert_params();
 
     // set orientation defaults
     for (uint8_t i=0; i<RANGEFINDER_MAX_INSTANCES; i++) {
@@ -343,6 +263,8 @@ bool RangeFinder::_add_backend(AP_RangeFinder_Backend *backend, uint8_t instance
 void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
 {
 #if AP_RANGEFINDER_ENABLED
+    AP_RangeFinder_Backend_Serial *(*serial_create_fn)(RangeFinder::RangeFinder_State&, AP_RangeFinder_Params&) = nullptr;
+
     const Type _type = (Type)params[instance].type.get();
     switch (_type) {
     case Type::PLI2C:
@@ -377,9 +299,11 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
 #if AP_RANGEFINDER_LWI2C_ENABLED
         if (params[instance].address) {
             // the LW20 needs a long time to boot up, so we delay 1.5s here
+#ifndef HAL_BUILD_AP_PERIPH
             if (!hal.util->was_watchdog_armed()) {
                 hal.scheduler->delay(1500);
             }
+#endif
 #ifdef HAL_RANGEFINDER_LIGHTWARE_I2C_BUS
             _add_backend(AP_RangeFinder_LightWareI2C::detect(state[instance], params[instance],
                                                              hal.i2c_mgr->get_device(HAL_RANGEFINDER_LIGHTWARE_I2C_BUS, params[instance].address)),
@@ -464,23 +388,17 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
         break;
     case Type::LWSER:
 #if AP_RANGEFINDER_LIGHTWARE_SERIAL_ENABLED
-        if (AP_RangeFinder_LightWareSerial::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_LightWareSerial(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_LightWareSerial::create;
 #endif
         break;
     case Type::LEDDARONE:
 #if AP_RANGEFINDER_LEDDARONE_ENABLED
-        if (AP_RangeFinder_LeddarOne::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_LeddarOne(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_LeddarOne::create;
 #endif
         break;
     case Type::USD1_Serial:
 #if AP_RANGEFINDER_USD1_SERIAL_ENABLED
-        if (AP_RangeFinder_USD1_Serial::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_USD1_Serial(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_USD1_Serial::create;
 #endif
         break;
     case Type::BEBOP:
@@ -499,9 +417,7 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
         break;
     case Type::MBSER:
 #if AP_RANGEFINDER_MAXBOTIX_SERIAL_ENABLED
-        if (AP_RangeFinder_MaxsonarSerialLV::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_MaxsonarSerialLV(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_MaxsonarSerialLV::create;
 #endif
         break;
     case Type::ANALOG:
@@ -522,37 +438,32 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
         break;
     case Type::NMEA:
 #if AP_RANGEFINDER_NMEA_ENABLED
-        if (AP_RangeFinder_NMEA::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_NMEA(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_NMEA::create;
 #endif
         break;
     case Type::WASP:
 #if AP_RANGEFINDER_WASP_ENABLED
-        if (AP_RangeFinder_Wasp::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_Wasp(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_Wasp::create;
 #endif
         break;
     case Type::BenewakeTF02:
 #if AP_RANGEFINDER_BENEWAKE_TF02_ENABLED
-        if (AP_RangeFinder_Benewake_TF02::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_Benewake_TF02(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_Benewake_TF02::create;
 #endif
         break;
     case Type::BenewakeTFmini:
 #if AP_RANGEFINDER_BENEWAKE_TFMINI_ENABLED
-        if (AP_RangeFinder_Benewake_TFMini::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_Benewake_TFMini(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_Benewake_TFMini::create;
 #endif
         break;
     case Type::BenewakeTF03:
 #if AP_RANGEFINDER_BENEWAKE_TF03_ENABLED
-        if (AP_RangeFinder_Benewake_TF03::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_Benewake_TF03(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_Benewake_TF03::create;
+#endif
+        break;
+    case Type::TeraRanger_Serial:
+#if AP_RANGEFINDER_TERARANGER_SERIAL_ENABLED
+        serial_create_fn = AP_RangeFinder_TeraRanger_Serial::create;
 #endif
         break;
     case Type::PWM:
@@ -564,28 +475,22 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
         break;
     case Type::BLPing:
 #if AP_RANGEFINDER_BLPING_ENABLED
-        if (AP_RangeFinder_BLPing::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_BLPing(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_BLPing::create;
 #endif
         break;
     case Type::Lanbao:
 #if AP_RANGEFINDER_LANBAO_ENABLED
-        if (AP_RangeFinder_Lanbao::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_Lanbao(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_Lanbao::create;
 #endif
         break;
     case Type::LeddarVu8_Serial:
 #if AP_RANGEFINDER_LEDDARVU8_ENABLED
-        if (AP_RangeFinder_LeddarVu8::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_LeddarVu8(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_LeddarVu8::create;
 #endif
         break;
 
     case Type::UAVCAN:
-#if AP_RANGEFINDER_UAVCAN_ENABLED
+#if AP_RANGEFINDER_DRONECAN_ENABLED
         /*
           the UAVCAN driver gets created when we first receive a
           measurement. We take the instance slot now, even if we don't
@@ -597,9 +502,7 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
 
     case Type::GYUS42v2:
 #if AP_RANGEFINDER_GYUS42V2_ENABLED
-        if (AP_RangeFinder_GYUS42v2::detect(serial_instance)) {
-            _add_backend(new AP_RangeFinder_GYUS42v2(state[instance], params[instance]), instance, serial_instance++);
-        }
+        serial_create_fn = AP_RangeFinder_GYUS42v2::create;
 #endif
         break;
 
@@ -625,10 +528,31 @@ void RangeFinder::detect_instance(uint8_t instance, uint8_t& serial_instance)
     case Type::Benewake_CAN:
 #if AP_RANGEFINDER_BENEWAKE_CAN_ENABLED
         _add_backend(new AP_RangeFinder_Benewake_CAN(state[instance], params[instance]), instance);
-        break;
 #endif
+        break;
+
+    case Type::Lua_Scripting:
+#if AP_SCRIPTING_ENABLED
+        _add_backend(new AP_RangeFinder_Lua(state[instance], params[instance]), instance);
+#endif
+        break;
+    case Type::NoopLoop_P:
+#if AP_RANGEFINDER_NOOPLOOP_ENABLED
+        serial_create_fn = AP_RangeFinder_NoopLoop::create;
+#endif
+        break;
+
     case Type::NONE:
         break;
+    }
+
+    if (serial_create_fn != nullptr) {
+        if (AP::serialmanager().have_serial(AP_SerialManager::SerialProtocol_Rangefinder, serial_instance)) {
+            auto *b = serial_create_fn(state[instance], params[instance]);
+            if (b != nullptr) {
+                _add_backend(b, instance, serial_instance++);
+            }
+        }
     }
 
     // if the backend has some local parameters then make those available in the tree
@@ -851,6 +775,37 @@ bool RangeFinder::prearm_healthy(char *failure_msg, const uint8_t failure_msg_le
         if (drivers[i] == nullptr) {
             hal.util->snprintf(failure_msg, failure_msg_len, "Rangefinder %X: Not Detected", i + 1);
             return false;
+        }
+
+        // backend-specific checks.  This might end up drivers[i]->arming_checks(...).
+        switch (drivers[i]->allocated_type()) {
+        case Type::ANALOG:
+        case Type::PX4_PWM:
+        case Type::PWM: {
+            // ensure pin is configured
+            if (params[i].pin == -1) {
+                hal.util->snprintf(failure_msg, failure_msg_len, "RNGFND%u_PIN not set", unsigned(i + 1));
+                return false;
+            }
+            if (drivers[i]->allocated_type() == Type::ANALOG) {
+                // Analog backend does not use GPIO pin
+                break;
+            }
+
+            // ensure that the pin we're configured to use is available
+            if (!hal.gpio->valid_pin(params[i].pin)) {
+                uint8_t servo_ch;
+                if (hal.gpio->pin_to_servo_channel(params[i].pin, servo_ch)) {
+                    hal.util->snprintf(failure_msg, failure_msg_len, "RNGFND%u_PIN=%d, set SERVO%u_FUNCTION=-1", unsigned(i + 1), int(params[i].pin.get()), unsigned(servo_ch+1));
+                } else {
+                    hal.util->snprintf(failure_msg, failure_msg_len, "RNGFND%u_PIN=%d invalid", unsigned(i + 1), int(params[i].pin.get()));
+                }
+                return false;
+            }
+            break;
+        }
+        default:
+            break;
         }
 
         switch (drivers[i]->status()) {

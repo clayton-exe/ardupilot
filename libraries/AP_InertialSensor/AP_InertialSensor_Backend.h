@@ -122,6 +122,9 @@ public:
         DEVTYPE_INS_IIM42652 = 0x37,
         DEVTYPE_BMI270       = 0x38,
         DEVTYPE_INS_BMI085   = 0x39,
+        DEVTYPE_INS_ICM42670 = 0x3A,
+        DEVTYPE_INS_ICM45686 = 0x3B,
+        DEVTYPE_INS_SCHA63T  = 0x3C,
     };
 
 protected:
@@ -140,8 +143,9 @@ protected:
     // rotate gyro vector, offset and publish
     void _publish_gyro(uint8_t instance, const Vector3f &gyro) __RAMFUNC__; /* front end */
 
-    // apply notch and lowpass gyro filters
+    // apply notch and lowpass gyro filters and sample for FFT
     void apply_gyro_filters(const uint8_t instance, const Vector3f &gyro);
+    void save_gyro_window(const uint8_t instance, const Vector3f &gyro, uint8_t phase);
 
     // this should be called every time a new gyro raw sample is
     // available - be it published or not the sample is raw in the
@@ -234,12 +238,6 @@ protected:
     // publish a temperature value
     void _publish_temperature(uint8_t instance, float temperature); /* front end */
 
-    // set accelerometer error_count
-    void _set_accel_error_count(uint8_t instance, uint32_t error_count);
-
-    // set gyro error_count
-    void _set_gyro_error_count(uint8_t instance, uint32_t error_count);
-
     // increment accelerometer error_count
     void _inc_accel_error_count(uint8_t instance) __RAMFUNC__;
 
@@ -291,7 +289,7 @@ protected:
     }
 
     // if fast sampling is enabled, the rate to use in kHz
-    uint8_t get_fast_sampling_rate() {
+    uint8_t get_fast_sampling_rate() const {
         return (1 << uint8_t(_imu._fast_sampling_rate));
     }
 

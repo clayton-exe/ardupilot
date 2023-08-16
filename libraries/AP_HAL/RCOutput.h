@@ -222,6 +222,15 @@ public:
     // static to allow use in the ChibiOS thread stuff
     static bool is_dshot_protocol(const enum output_mode mode);
 
+    static bool is_led_protocol(const enum output_mode mode) {
+      switch (mode) {
+      case MODE_NEOPIXEL:
+      case MODE_PROFILED:
+        return true;
+      default:
+        return false;
+      }
+    }
 
     // BLHeli32: https://github.com/bitdump/BLHeli/blob/master/BLHeli_32%20ARM/BLHeli_32%20Firmware%20specs/Digital_Cmd_Spec.txt
     // BLHeli_S: https://github.com/bitdump/BLHeli/blob/master/BLHeli_S%20SiLabs/Dshotprog%20spec%20BLHeli_S.txt
@@ -238,6 +247,8 @@ public:
       DSHOT_3D_OFF = 9,
       DSHOT_3D_ON = 10,
       DSHOT_SAVE = 12,
+      DSHOT_EXTENDED_TELEMETRY_ENABLE = 13,
+      DSHOT_EXTENDED_TELEMETRY_DISABLE = 14,
       DSHOT_NORMAL = 20,
       DSHOT_REVERSE = 21,
       // The following options are only available on BLHeli32
@@ -256,10 +267,18 @@ public:
     enum DshotEscType {
       DSHOT_ESC_NONE = 0,
       DSHOT_ESC_BLHELI = 1,
-      DSHOT_ESC_BLHELI_S = 2
+      DSHOT_ESC_BLHELI_S = 2,
+      DSHOT_ESC_BLHELI_EDT = 3,
+      DSHOT_ESC_BLHELI_EDT_S = 4
     };
 
     virtual void    set_output_mode(uint32_t mask, enum output_mode mode) {}
+
+    virtual enum output_mode get_output_mode(uint32_t& mask) {
+      mask = 0;
+      return MODE_PWM_NORMAL;
+    }
+
 
     /*
      * get output mode banner to inform user of how outputs are configured
@@ -297,6 +316,12 @@ public:
       Set the dshot rate as a multiple of the loop rate
      */
     virtual void set_dshot_rate(uint8_t dshot_rate, uint16_t loop_rate_hz) {}
+
+    /*
+      Set the dshot period in us, only for use by the IOMCU
+     */
+    virtual void set_dshot_period(uint32_t period_us, uint8_t dshot_rate) {}
+    virtual uint32_t get_dshot_period_us() const { return 0; }
 
     /*
       Set the dshot ESC type
@@ -337,6 +362,16 @@ public:
     virtual void timer_info(ExpandingString &str) {}
 
     /*
+      Can this driver handle gpio as well as RC
+    */
+    virtual bool supports_gpio() { return false; };
+
+    /*
+      Writes gpio state to a channel
+    */
+    virtual void write_gpio(uint8_t chan, bool active) {};
+
+    /*
      * calculate the prescaler required to achieve the desire bitrate
      */
     static uint32_t calculate_bitrate_prescaler(uint32_t timer_clock, uint32_t target_frequency, bool is_dshot);
@@ -349,7 +384,7 @@ public:
      * Options are (ticks, percentage):
      * 20/7/14, 35/70
      * 11/4/8, 36/72
-     * 8/3/6, 37/75
+     * 8/3/6, 37/75 <-- this is the preferred duty cycle and has some support on the interwebs
      */
     // bitwidths: 8/3/6 == 37%/75%
     static constexpr uint32_t DSHOT_BIT_WIDTH_TICKS_DEFAULT = 8;
@@ -365,12 +400,15 @@ public:
     static uint32_t DSHOT_BIT_1_TICKS;
 
     // See WS2812B spec for expected pulse widths
-    static constexpr uint32_t NEOP_BIT_WIDTH_TICKS = 20;
-    static constexpr uint32_t NEOP_BIT_0_TICKS = 7;
-    static constexpr uint32_t NEOP_BIT_1_TICKS = 14;
+    static constexpr uint32_t NEOP_BIT_WIDTH_TICKS = 8;
+    static constexpr uint32_t NEOP_BIT_0_TICKS = 3;
+    static constexpr uint32_t NEOP_BIT_1_TICKS = 6;
     // neopixel does not use pulse widths at all
     static constexpr uint32_t PROFI_BIT_0_TICKS = 7;
     static constexpr uint32_t PROFI_BIT_1_TICKS = 14;
+
+    // suitably long LED output period to support high LED counts
+    static constexpr uint32_t LED_OUTPUT_PERIOD_US = 10000;
 
 protected:
 

@@ -1,13 +1,11 @@
 #pragma once
 
-#include "AP_RangeFinder.h"
-#include "AP_RangeFinder_Backend.h"
-
-#ifndef AP_RANGEFINDER_MAVLINK_ENABLED
-#define AP_RANGEFINDER_MAVLINK_ENABLED AP_RANGEFINDER_BACKEND_DEFAULT_ENABLED
-#endif
+#include "AP_RangeFinder_config.h"
 
 #if AP_RANGEFINDER_MAVLINK_ENABLED
+
+#include "AP_RangeFinder.h"
+#include "AP_RangeFinder_Backend.h"
 
 // Data timeout
 #define AP_RANGEFINDER_MAVLINK_TIMEOUT_MS 500
@@ -16,6 +14,7 @@ class AP_RangeFinder_MAVLink : public AP_RangeFinder_Backend
 {
 
 public:
+
     // constructor
     using AP_RangeFinder_Backend::AP_RangeFinder_Backend;
 

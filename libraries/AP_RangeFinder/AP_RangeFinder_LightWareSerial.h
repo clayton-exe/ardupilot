@@ -1,22 +1,26 @@
 #pragma once
 
-#include "AP_RangeFinder.h"
-#include "AP_RangeFinder_Backend_Serial.h"
-
-#ifndef AP_RANGEFINDER_LIGHTWARE_SERIAL_ENABLED
-#define AP_RANGEFINDER_LIGHTWARE_SERIAL_ENABLED AP_RANGEFINDER_BACKEND_DEFAULT_ENABLED
-#endif
+#include "AP_RangeFinder_config.h"
 
 #if AP_RANGEFINDER_LIGHTWARE_SERIAL_ENABLED
+
+#include "AP_RangeFinder.h"
+#include "AP_RangeFinder_Backend_Serial.h"
 
 class AP_RangeFinder_LightWareSerial : public AP_RangeFinder_Backend_Serial
 {
 
 public:
 
-    using AP_RangeFinder_Backend_Serial::AP_RangeFinder_Backend_Serial;
+    static AP_RangeFinder_Backend_Serial *create(
+        RangeFinder::RangeFinder_State &_state,
+        AP_RangeFinder_Params &_params) {
+        return new AP_RangeFinder_LightWareSerial(_state, _params);
+    }
 
 protected:
+
+    using AP_RangeFinder_Backend_Serial::AP_RangeFinder_Backend_Serial;
 
     MAV_DISTANCE_SENSOR _get_mav_distance_sensor_type() const override {
         return MAV_DISTANCE_SENSOR_LASER;
