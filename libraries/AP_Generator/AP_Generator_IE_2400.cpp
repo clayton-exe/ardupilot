@@ -161,7 +161,6 @@ bool AP_Generator_IE_2400::is_low_error(const uint32_t err_in) const
         case ErrorCode::BATTERY_LOW:
         case ErrorCode::PRESSURE_LOW:
         case ErrorCode::SPM_LOST:
-        case ErrorCode::REDUCED_POWER:
             return true;
 
         default:
