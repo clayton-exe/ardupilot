@@ -130,7 +130,7 @@ for t in $CI_BUILD_TARGET; do
     fi
     if [ "$t" == "sitltest-can" ]; then
         echo "Building SITL Periph GPS"
-        $waf configure --board sitl --force-32bit
+        $waf configure --board sitl
         $waf copter
         run_autotest "Copter" "build.SITLPeriphGPS" "test.CAN"
         continue
@@ -336,6 +336,7 @@ for t in $CI_BUILD_TARGET; do
         $waf clean
         $waf copter
         $waf plane
+        $waf tests
         continue
     fi
     
@@ -415,7 +416,7 @@ for t in $CI_BUILD_TARGET; do
 
     if [ "$t" == "astyle-cleanliness" ]; then
         echo "Checking AStyle code cleanliness"
-        ./Tools/scripts/run_astyle.py
+        ./Tools/scripts/run_astyle.py --dry-run
         continue
     fi
 

@@ -876,6 +876,27 @@ class ChibiOSHWDef(object):
         if page_size == 16384 and storage_size > 15360:
             self.error("HAL_STORAGE_SIZE invalid, needs to be 15360")
 
+    def get_numeric_board_id(self):
+        '''return a numeric board ID, which may require mapping a string to a
+        number via board_list.txt'''
+        some_id = self.get_config('APJ_BOARD_ID')
+        if some_id.isnumeric():
+            return some_id
+
+        board_types_filename = "board_types.txt"
+        topdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../..')
+        board_types_dirpath = os.path.join(topdir, "Tools", "AP_Bootloader")
+        board_types_filepath = os.path.join(board_types_dirpath, board_types_filename)
+        for line in open(board_types_filepath, 'r'):
+            m = re.match(r"(?P<name>[-\w]+)\s+(?P<board_id>\d+)", line)
+            if m is None:
+                continue
+            if m.group('name') == some_id:
+                return m.group('board_id')
+
+        raise ValueError("Unable to map (%s) to a board ID using %s" %
+                         (some_id, board_types_filepath))
+
     def write_mcu_config(self, f):
         '''write MCU config defines'''
         f.write('#define CHIBIOS_BOARD_NAME "%s"\n' % os.path.basename(os.path.dirname(args.hwdef[0])))
@@ -1105,7 +1126,7 @@ class ChibiOSHWDef(object):
             f.write('#define UDID_START 0x%08x\n\n' % udid_start)
 
         f.write('\n// APJ board ID (for bootloaders)\n')
-        f.write('#define APJ_BOARD_ID %s\n' % self.get_config('APJ_BOARD_ID'))
+        f.write('#define APJ_BOARD_ID %s\n' % self.get_numeric_board_id())
 
         # support ALT_BOARD_ID for px4 firmware
         alt_id = self.get_config('ALT_BOARD_ID', required=False)
@@ -2386,9 +2407,16 @@ INCLUDE common.ld
             # or, you know, not...
             return
 
+        if self.is_bootloader_fw():
+            return
+
+        if self.is_io_fw():
+            return
+
         bp = self.bootloader_path()
         if not os.path.exists(bp):
-            return
+            self.error("Bootloader (%s) does not exist and AP_BOOTLOADER_FLASHING_ENABLED" %
+                       (bp,))
 
         bp = os.path.realpath(bp)
 
@@ -2404,7 +2432,7 @@ INCLUDE common.ld
 
     def setup_apj_IDs(self):
         '''setup the APJ board IDs'''
-        self.env_vars['APJ_BOARD_ID'] = self.get_config('APJ_BOARD_ID')
+        self.env_vars['APJ_BOARD_ID'] = self.get_numeric_board_id()
         self.env_vars['APJ_BOARD_TYPE'] = self.get_config('APJ_BOARD_TYPE', default=self.mcu_type)
         (USB_VID, USB_PID) = self.get_USB_IDs()
         self.env_vars['USBID'] = '0x%04x/0x%04x' % (USB_VID, USB_PID)
@@ -2958,7 +2986,7 @@ INCLUDE common.ld
                         self.spidev.remove(dev)
                 # also remove all occurences of defines in previous lines if any
                 for line in self.alllines[:]:
-                    if line.startswith('define') and u == line.split()[1] or line.startswith('STM32_') and u == line.split()[0]:
+                    if line.startswith('define') and u == line.split()[1] or line.startswith('STM32_') and u == line.split()[0]:  # noqa
                         self.alllines.remove(line)
                 newpins = []
                 for pin in self.allpins:
@@ -3014,9 +3042,12 @@ INCLUDE common.ld
 
         self.add_firmware_defaults_from_file(f, "defaults_periph.h", "AP_Periph")
 
+    def is_bootloader_fw(self):
+        return args.bootloader
+
     def add_bootloader_defaults(self, f):
         '''add default defines for peripherals'''
-        if not args.bootloader:
+        if not self.is_bootloader_fw():
             return
 
         self.add_firmware_defaults_from_file(f, "defaults_bootloader.h", "bootloader")
@@ -3036,9 +3067,12 @@ INCLUDE common.ld
 // end %s defaults
 ''' % (description, content, description))
 
+    def is_io_fw(self):
+        return self.env_vars.get('IOMCU_FW', 0) != 0
+
     def add_iomcu_firmware_defaults(self, f):
         '''add default defines IO firmwares'''
-        if self.env_vars.get('IOMCU_FW', 0) == 0:
+        if not self.is_io_fw():
             # not IOMCU firmware
             return
 
@@ -3047,16 +3081,21 @@ INCLUDE common.ld
     def is_periph_fw(self):
         return self.env_vars.get('AP_PERIPH', 0) != 0
 
-    def add_normal_firmware_defaults(self, f):
-        '''add default defines to builds with are not bootloader, periph or IOMCU'''
+    def is_normal_fw(self):
         if self.env_vars.get('IOMCU_FW', 0) != 0:
             # IOMCU firmware
-            return
+            return False
         if self.is_periph_fw():
             # Periph firmware
-            return
+            return False
         if args.bootloader:
             # guess
+            return False
+        return True
+
+    def add_normal_firmware_defaults(self, f):
+        '''add default defines to builds with are not bootloader, periph or IOMCU'''
+        if not self.is_normal_fw():
             return
 
         self.add_firmware_defaults_from_file(f, "defaults_normal.h", "normal")
